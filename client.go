@@ -104,14 +104,14 @@ func (c *Client) From(table string) *QueryBuilder {
 
 // Rpc executes a Postgres function (a.k.a., Remote Prodedure Call), given the
 // function name and, optionally, a body, returning the result as a string.
-func (c *Client) Rpc(name string, count string, rpcBody interface{}) string {
+func (c *Client) Rpc(name string, count string, rpcBody interface{}) (string, http.Header, error) {
 	// Get body if it exists
 	var byteBody []byte = nil
 	if rpcBody != nil {
 		jsonBody, err := json.Marshal(rpcBody)
 		if err != nil {
 			c.ClientError = err
-			return ""
+			return "", nil, err
 		}
 		byteBody = jsonBody
 	}
@@ -121,7 +121,7 @@ func (c *Client) Rpc(name string, count string, rpcBody interface{}) string {
 	req, err := http.NewRequest("POST", url, readerBody)
 	if err != nil {
 		c.ClientError = err
-		return ""
+		return "", nil, err
 	}
 
 	if count != "" && (count == `exact` || count == `planned` || count == `estimated`) {
@@ -131,13 +131,13 @@ func (c *Client) Rpc(name string, count string, rpcBody interface{}) string {
 	resp, err := c.session.Do(req)
 	if err != nil {
 		c.ClientError = err
-		return ""
+		return "", nil, err
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		c.ClientError = err
-		return ""
+		return "", nil, err
 	}
 
 	result := string(body)
@@ -145,10 +145,10 @@ func (c *Client) Rpc(name string, count string, rpcBody interface{}) string {
 	err = resp.Body.Close()
 	if err != nil {
 		c.ClientError = err
-		return ""
+		return "", nil, err
 	}
 
-	return result
+	return result, resp.Header, nil
 }
 
 type transport struct {
